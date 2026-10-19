@@ -1,0 +1,31 @@
+;; Sample data. The cinemas, addresses and shows are invented.
+{:cinemas
+ [{:cinema/id :nimas      :cinema/name "Cinema Nimas"          :cinema/address "Av. 5 de Outubro 42B"    :cinema/district "Avenidas Novas" :cinema/city "Lisboa"}
+  {:cinema/id :ideal      :cinema/name "Cinema Ideal"          :cinema/address "Rua do Loreto 15"        :cinema/district "Chiado"         :cinema/city "Lisboa"}
+  {:cinema/id :cinemateca :cinema/name "Cinemateca Portuguesa" :cinema/address "Rua Barata Salgueiro 39" :cinema/district "Santo António"  :cinema/city "Lisboa"}
+  {:cinema/id :flopes     :cinema/name "Cinema Fernando Lopes" :cinema/address "Campo Grande 376"        :cinema/district "Alvalade"       :cinema/city "Lisboa"}
+  {:cinema/id :oriente    :cinema/name "Cine Oriente"          :cinema/address "Av. D. João II 40"       :cinema/district "Parque das Nações" :cinema/city "Lisboa"}
+  {:cinema/id :belem      :cinema/name "Cine Belém"            :cinema/address "Rua de Belém 12"         :cinema/district "Belém"          :cinema/city "Lisboa"}
+  {:cinema/id :graca      :cinema/name "Cine Graça"            :cinema/address "Largo da Graça 8"        :cinema/district "Graça"          :cinema/city "Lisboa"}
+  {:cinema/id :uci        :cinema/name "UCI El Corte Inglés"   :cinema/address "Av. António Augusto de Aguiar 31" :cinema/district "Avenidas Novas" :cinema/city "Lisboa"}]
+
+ :movies
+ [{:movie/id "sample/hamnet" :movie/title "Hamnet" :movie/genres ["Drama"] :movie/year 2025 :movie/duration 125 :movie/age "M/12"
+   :movie/synopsis "Em Inglaterra, em 1580, um professor de latim e uma jovem curandeira casam-se e perdem um filho."
+   :shows [[:oriente "13:20 16:50 20:20"] [:uci "14:10 17:40 21:15"] [:belem "15:00 18:30 22:00"]
+           [:graca "16:20 21:00"] [:ideal "21:30"] [:ideal "18:00" {:days [3 4]}]]}
+  {:movie/id "sample/valor-sentimental" :movie/title "Valor Sentimental" :movie/genres ["Drama"] :movie/year 2025 :movie/duration 133 :movie/age "M/12"
+   :movie/synopsis "Duas irmãs reencontram o pai, um realizador em declínio, quando este lhes propõe um papel no seu novo filme."
+   :shows [[:nimas "15:15 19:00 21:40"] [:ideal "16:15 19:10"] [:uci "13:50 18:45 21:30"]
+           [:flopes "18:30" {:days [1 3]}] [:flopes "21:00" {:days [6]}] [:graca "19:10"]]}
+  {:movie/id "sample/o-agente-secreto" :movie/title "O Agente Secreto" :movie/genres ["Drama" "Thriller"] :movie/year 2025 :movie/duration 158 :movie/age "M/14"
+   :movie/synopsis "Recife, 1977. Um professor em fuga tenta recomeçar a vida numa cidade em pleno Carnaval, vigiado de perto."
+   :shows [[:ideal "18:45"] [:nimas "14:00" {:days [3 4]}] [:oriente "21:05"] [:uci "15:20 20:45"]]}
+  {:movie/id "sample/zootropolis-2" :movie/title "Zootrópolis 2" :movie/genres ["Animação" "Comédia" "Família"] :movie/year 2025 :movie/duration 108 :movie/age "M/6"
+   :movie/synopsis "Judy Hopps e Nick Wilde seguem o rasto de uma misteriosa serpente que chega a Zootrópolis e vira a cidade do avesso."
+   :shows [[:oriente "13:30 16:00 18:20" {:version :vp}] [:oriente "21:10" {:version :vo}]
+           [:belem "14:20 16:40" {:version :vp}] [:uci "13:00 15:30 17:50" {:version :vp}] [:uci "20:30" {:version :vo}]
+           [:graca "14:00 16:30" {:version :vp}]]}
+  {:movie/id "sample/os-verdes-anos" :movie/title "Os Verdes Anos" :movie/genres ["Drama"] :movie/year 1963 :movie/duration 91 :movie/age "M/12"
+   :movie/synopsis "Um jovem sapateiro chega a Lisboa vindo da província e apaixona-se por uma criada. Cópia restaurada."
+   :shows [[:cinemateca "19:00" {:days [1]}] [:cinemateca "15:30" {:days [5]}] [:nimas "21:30" {:days [2]}] [:flopes "17:00" {:days [4]}]]}]}
