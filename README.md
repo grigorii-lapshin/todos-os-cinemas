@@ -1,6 +1,6 @@
 # Todos os Cinemas
 
-All screenings in all cinemas of Lisbon and Porto on one page: https://kino.161-35-65-11.sslip.io
+All screenings in all cinemas of Portugal on one page: https://kino.161-35-65-11.sslip.io
 
 The idea and the design come from [allekinos.de](https://allekinos.de) by Nikita Prokopov (Tonsky): https://tonsky.me/blog/allekinos/
 
