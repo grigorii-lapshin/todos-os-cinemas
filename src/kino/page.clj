@@ -100,7 +100,7 @@ img.poster { padding: 0; object-fit: cover; }
                             (format "%02d:%02d" (.getHour t) (.getMinute t))])]))
           [[] []]
           (sort-by :show/time shows))]
-    (into [:div.s {:style (str "height:" (max 55 (+ 12 (* 22 (count lanes)))) "px")}] spans)))
+    (into [:div.s {:style (str "min-height:" (max 55 (+ 12 (* 22 (count lanes)))) "px")}] spans)))
 
 (def badges
   {:vp [:span.v.vp {:title "Versão portuguesa (dobrado)"} "VP"]
