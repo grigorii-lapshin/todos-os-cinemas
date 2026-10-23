@@ -8,7 +8,8 @@
             [kino.sample :as sample]
             [org.httpkit.client :as client]
             [org.httpkit.server :as http])
-  (:import [java.nio.file Files StandardCopyOption]
+  (:import [java.net URLDecoder]
+           [java.nio.file Files StandardCopyOption]
            [java.text Normalizer Normalizer$Form]
            [java.time Instant LocalDateTime]
            [java.util.concurrent Executors TimeUnit]))
@@ -146,13 +147,22 @@
   {"/fonts/FiraSans-Regular.woff2"  "font/woff2"
    "/fonts/FiraSans-SemiBold.woff2" "font/woff2"})
 
-(defn handler [{:keys [uri]}]
+;; "cidade=Porto&x=1" → {:cidade "Porto"}. Unknown, empty, and badly encoded parameters are ignored.
+(defn query-params [s]
+  (into {} (for [pair  (str/split (or s "") #"&")
+                 :let  [[k v] (str/split pair #"=" 2)
+                        v (try (some-> v (URLDecoder/decode "UTF-8") not-empty)
+                               (catch IllegalArgumentException _ nil))]
+                 :when (and v (page/filters (keyword k)))]
+             [(keyword k) v])))
+
+(defn handler [{:keys [uri query-string]}]
   (let [poster (some->> (re-find #"^/posters/(.*)$" uri) second (re-matches poster-name) (io/file posters-dir))]
     (cond
       (= uri "/")
       {:status 200
        :headers {"Content-Type" "text/html; charset=utf-8"}
-       :body (page/render @*db)}
+       :body (page/render @*db (query-params query-string))}
 
       (static uri)
       {:status 200

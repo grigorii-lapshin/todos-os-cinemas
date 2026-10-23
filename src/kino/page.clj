@@ -1,7 +1,9 @@
 (ns kino.page
-  (:require [datascript.core :as d]
+  (:require [clojure.string :as str]
+            [datascript.core :as d]
             [hiccup2.core :as h])
-  (:import [java.time LocalDate LocalDateTime ZoneId]))
+  (:import [java.net URLEncoder]
+           [java.time LocalDate LocalDateTime ZoneId]))
 
 (def css "
 @font-face { font-family: 'Fira Sans'; font-weight: 400; font-display: swap; src: url(/fonts/FiraSans-Regular.woff2) format('woff2'); }
@@ -18,8 +20,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--text); font: 16px/19px var(--font); padding-inline: 16px; display: flex; flex-direction: column; }
-a, .t, .lnk { color: var(--link); text-decoration: none; cursor: pointer; }
-a:hover, .lnk:hover { color: var(--hover); text-decoration: underline; }
+a, .t { color: var(--link); text-decoration: none; cursor: pointer; }
+a:hover { color: var(--hover); text-decoration: underline; }
 
 .scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: none; }
 
@@ -30,8 +32,7 @@ a:hover, .lnk:hover { color: var(--hover); text-decoration: underline; }
   border: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .chip { display: inline-flex; gap: 6px; align-items: center; background: var(--badge); border: 1px solid var(--border); padding: 1px 7px; border-radius: 3px; font-size: 14px; }
 .chip .x { color: var(--muted); }
-.tabs { font-size: 14px; color: var(--muted); }
-.tabs b { color: var(--text); font-weight: 600; }
+.none { grid-column: 1 / 3; }
 
 .day { position: sticky; top: 0; z-index: 20; background: var(--surface); text-align: center; line-height: 20px; font-size: 15px;
   border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -53,7 +54,7 @@ img.poster { padding: 0; object-fit: cover; }
 .c { grid-column: 2; position: sticky; left: 0; z-index: 20; background: var(--bg); min-height: 55px;
   border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .c .addr { color: var(--muted); font-size: 14px; }
-.c .addr .lnk { color: inherit; text-decoration: underline; }
+.c .addr a { color: inherit; text-decoration: underline; }
 .v { margin-left: 6px; font-size: 11px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); vertical-align: 1px; font-weight: 600; letter-spacing: .03em; }
 .v.vp { color: var(--hover); border-color: currentColor; }
 
@@ -114,16 +115,29 @@ img.poster { padding: 0; object-fit: cover; }
       [:div.poster {:style (str "background:linear-gradient(30deg,hsl(" hue " 45% 22%),hsl(" (+ hue 25) " 40% 48%))")}
        (:movie/title movie)])))
 
-(defn movie-rows [movie shows days now]
+(def filters
+  "URL parameter → the value of a show. The order is the order of the chips and the URL."
+  (array-map
+    :cidade (comp :cinema/city :show/cinema)
+    :cinema (comp :cinema/name :show/cinema)
+    :filme  (comp :movie/title :show/movie)))
+
+(defn href [params]
+  (if (empty? params)
+    "/"
+    (str "/?" (str/join "&" (for [k (keys filters) :let [v (params k)] :when v]
+                              (str (name k) "=" (URLEncoder/encode ^String v "UTF-8")))))))
+
+(defn movie-rows [movie shows days now params]
   (let [rows (->> (group-by (juxt :show/cinema :show/version) shows)
                   (sort-by (fn [[[cinema version] _]] [(:cinema/name cinema) (name (or version :_))])))]
     (list*
       [:div.mp {:style (str "grid-row:span " (inc (count rows)))} (poster movie)]
       [:div.mt
-       [:h2 [:span.lnk (:movie/title movie)]]
+       [:h2 [:a {:href (href (assoc params :filme (:movie/title movie)))} (:movie/title movie)]]
        [:div.mi
         (interpose " • "
-          (concat (for [g (sort (:movie/genres movie))] [:span.lnk g])
+          (concat (sort (:movie/genres movie))
                   (keep identity
                     [(:movie/year movie)
                      (some-> (:movie/duration movie) duration)
@@ -133,14 +147,20 @@ img.poster { padding: 0; object-fit: cover; }
       (for [[[cinema version] shows] rows
             :let [by-day (group-by #(.toLocalDate ^LocalDateTime (:show/time %)) shows)]
             el (cons [:div.c
-                      [:span.lnk (:cinema/name cinema)] (badges version)
-                      [:div.addr (:cinema/address cinema)
-                       (when-let [district (:cinema/district cinema)] (list " • " [:span.lnk district]))]]
+                      [:a {:href (href (assoc params :cinema (:cinema/name cinema)))} (:cinema/name cinema)] (badges version)
+                      [:div.addr
+                       (interpose " • "
+                         (keep identity
+                           [(:cinema/address cinema)
+                            (some->> (:cinema/city cinema) (vector :a {:href (href (assoc params :cidade (:cinema/city cinema)))}))
+                            (:cinema/district cinema)]))]]
                      (for [day days]
                        (cell (by-day day) now)))]
         el))))
 
-(defn render [db]
+(defn render
+  "params: the filters from the URL, for example {:cidade \"Porto\"}. A show must match all of them."
+  [db params]
   (let [now   (LocalDateTime/now zone)
         today (.toLocalDate now)
         days  (map #(.plusDays today %) (range 7))
@@ -149,7 +169,8 @@ img.poster { padding: 0; object-fit: cover; }
                           :where [?s :show/time]]
                         db)
                    (filter #(and (not (.isBefore ^LocalDateTime (:show/time %) (.atStartOfDay today)))
-                                 (.isBefore ^LocalDateTime (:show/time %) end))))
+                                 (.isBefore ^LocalDateTime (:show/time %) end)))
+                   (filter (fn [s] (every? (fn [[k v]] (= v ((filters k) s))) params))))
         movies (->> (group-by :show/movie shows)
                     (sort-by (fn [[movie shows]] [(- (count shows)) (:movie/title movie)])))]
     (str
@@ -158,18 +179,20 @@ img.poster { padding: 0; object-fit: cover; }
         [:html {:lang "pt"}
          [:head
           [:meta {:charset "utf-8"}]
-          [:title "Todos os Cinemas"]
+          [:title (str/join " — " (concat (keep params (keys filters)) ["Todos os Cinemas"]))]
           [:style (h/raw css)]]
          [:body
           [:div.scroll
            [:div.grid
             [:div.filters
-             [:span.lnk {:title "Início"} "⌂"]
-             [:span.chip "Lisboa " [:span.x "×"]]
-             [:span.tabs [:b "Em cartaz"] " • " [:span.lnk "Estreias"] " • " [:span.lnk "Todos os filmes"]]]
+             [:a {:href "/" :title "Início"} "⌂"]
+             (for [k (keys filters) :let [v (params k)] :when v]
+               [:span.chip v [:a.x {:href (href (dissoc params k)) :title "Remover filtro"} "×"]])]
             (for [[i day] (map-indexed vector days)]
               (if (zero? i)
                 [:div.day.today (str "Hoje, " (day-label day))]
                 [:div.day (day-label day)]))
-            (for [[movie shows] movies]
-              (movie-rows movie shows days now))]]]]))))
+            (if (empty? movies)
+              [:div.none "Nenhuma sessão encontrada. " [:a {:href "/"} "Ver todas as sessões"]]
+              (for [[movie shows] movies]
+                (movie-rows movie shows days now params)))]]]]))))
