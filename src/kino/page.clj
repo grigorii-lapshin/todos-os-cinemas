@@ -3,7 +3,9 @@
             [datascript.core :as d]
             [hiccup2.core :as h])
   (:import [java.net URLEncoder]
-           [java.time LocalDate LocalDateTime ZoneId]))
+           [java.text Collator Normalizer Normalizer$Form]
+           [java.time LocalDate LocalDateTime ZoneId]
+           [java.util Locale]))
 
 (def css "
 @font-face { font-family: 'Fira Sans'; font-weight: 400; font-display: swap; src: url(/fonts/FiraSans-Regular.woff2) format('woff2'); }
@@ -62,6 +64,13 @@ img.poster { padding: 0; object-fit: cover; }
 .s > a { position: absolute; padding: 5px; line-height: 10px; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .s > .t:hover { background: var(--hover-bg); color: var(--hover); text-decoration: none; }
 .s > .past { color: var(--past); }
+
+.index { padding-block: 16px; }
+.index h1 { font-size: 24px; line-height: 28px; font-weight: 600; margin-bottom: 16px; }
+.cities { columns: 160px; column-gap: 24px; }
+.cities section { break-inside: avoid; margin-bottom: 12px; }
+.cities h3 { font-size: 15px; font-weight: 600; color: var(--muted); }
+.cities a { display: block; line-height: 22px; }
 ")
 
 (def zone (ZoneId/of "Europe/Lisbon"))
@@ -124,9 +133,26 @@ img.poster { padding: 0; object-fit: cover; }
 
 (defn href [params]
   (if (empty? params)
-    "/"
-    (str "/?" (str/join "&" (for [k (keys filters) :let [v (params k)] :when v]
-                              (str (name k) "=" (URLEncoder/encode ^String v "UTF-8")))))))
+     "/"
+     (str "/?" (str/join "&" (for [k (keys filters) :let [v (params k)] :when v]
+                               (str (name k) "=" (URLEncoder/encode ^String v "UTF-8")))))))
+
+;; "Évora" → "E"
+(defn letter [city]
+  (-> (Normalizer/normalize (subs city 0 1) Normalizer$Form/NFD) (str/replace #"\p{M}" "") str/upper-case))
+
+(defn index
+  "The cities with shows, A to Z. Each links to its grid."
+  [shows]
+  (let [cities (->> shows (keep (filters :cidade)) distinct (sort (Collator/getInstance (Locale/forLanguageTag "pt-PT"))))]
+    [:div.index
+     [:h1 "Todos os Cinemas"]
+     [:div.cities
+      (for [group (partition-by letter cities)]
+        [:section
+         [:h3 (letter (first group))]
+         (for [city group]
+           [:a {:href (href {:cidade city})} city])])]]))
 
 (defn movie-rows [movie shows days now params]
   (let [rows (->> (group-by (juxt :show/cinema :show/version) shows)
@@ -159,7 +185,8 @@ img.poster { padding: 0; object-fit: cover; }
         el))))
 
 (defn render
-  "params: the filters from the URL, for example {:cidade \"Porto\"}. A show must match all of them."
+  "params: the filters from the URL, for example {:cidade \"Porto\"}. A show must match all of them.
+  Without params: the list of cities."
   [db params]
   (let [now   (LocalDateTime/now zone)
         today (.toLocalDate now)
@@ -179,20 +206,24 @@ img.poster { padding: 0; object-fit: cover; }
         [:html {:lang "pt"}
          [:head
           [:meta {:charset "utf-8"}]
+          ;; ponytail: only the index fits a phone, the grid has no phone layout yet
+          (when (empty? params) [:meta {:name "viewport" :content "width=device-width"}])
           [:title (str/join " — " (concat (keep params (keys filters)) ["Todos os Cinemas"]))]
           [:style (h/raw css)]]
          [:body
           [:div.scroll
-           [:div.grid
-            [:div.filters
-             [:a {:href "/" :title "Início"} "⌂"]
-             (for [k (keys filters) :let [v (params k)] :when v]
-               [:span.chip v [:a.x {:href (href (dissoc params k)) :title "Remover filtro"} "×"]])]
-            (for [[i day] (map-indexed vector days)]
-              (if (zero? i)
-                [:div.day.today (str "Hoje, " (day-label day))]
-                [:div.day (day-label day)]))
-            (if (empty? movies)
-              [:div.none "Nenhuma sessão encontrada. " [:a {:href "/"} "Ver todas as sessões"]]
-              (for [[movie shows] movies]
-                (movie-rows movie shows days now params)))]]]]))))
+           (if (empty? params)
+            (index shows)
+            [:div.grid
+             [:div.filters
+              [:a {:href "/" :title "Início"} "⌂"]
+              (for [k (keys filters) :let [v (params k)] :when v]
+                [:span.chip v [:a.x {:href (href (dissoc params k)) :title "Remover filtro"} "×"]])]
+             (for [[i day] (map-indexed vector days)]
+               (if (zero? i)
+                 [:div.day.today (str "Hoje, " (day-label day))]
+                 [:div.day (day-label day)]))
+             (if (empty? movies)
+               [:div.none "Nenhuma sessão encontrada. " [:a {:href "/"} "Ver todas as cidades"]]
+               (for [[movie shows] movies]
+                 (movie-rows movie shows days now params)))])]]]))))
