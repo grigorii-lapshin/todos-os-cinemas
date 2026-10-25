@@ -8,7 +8,11 @@
             [kino.sample :as sample]
             [org.httpkit.client :as client]
             [org.httpkit.server :as http])
-  (:import [java.net URLDecoder]
+  (:import [java.awt Image]
+           [java.awt.image BufferedImage]
+           [java.io File]
+           [java.net URLDecoder]
+           [javax.imageio ImageIO]
            [java.nio.file Files StandardCopyOption]
            [java.text Normalizer Normalizer$Form]
            [java.time Instant LocalDateTime]
@@ -82,6 +86,20 @@
 (defn poster-file [id]
   (some-> (str/replace id #"[^a-z0-9]+" "-") (str/replace #"^-|-$" "") not-empty (str ".jpg")))
 
+;; ponytail: one size, 250 px wide: the 125 px desktop poster on a 2x screen. The phone poster uses the same file.
+;; A format that ImageIO cannot read (WebP) stays as it is.
+(defn shrink!
+  "Makes the image in file 250 px wide, if it is wider."
+  [^File file]
+  (when-let [src (ImageIO/read file)]
+    (when (> (.getWidth src) 250)
+      (let [h   (Math/round (/ (* 250.0 (.getHeight src)) (.getWidth src)))
+            img (BufferedImage. 250 h BufferedImage/TYPE_INT_RGB)]
+        (doto (.createGraphics img)
+          (.drawImage (.getScaledInstance src 250 h Image/SCALE_AREA_AVERAGING) 0 0 nil)
+          .dispose)
+        (ImageIO/write img "jpg" file)))))
+
 (defn download! [url file]
   (try
     (let [{:keys [status body error]} @(client/get url {:as :byte-array :timeout 30000})]
@@ -89,13 +107,13 @@
       (when (not= 200 status) (throw (ex-info (str "HTTP " status) {})))
       (io/make-parents file)
       (io/copy body file)
+      (shrink! file)
       true)
     (catch Exception e
       (println (str (Instant/now)) "poster" url "failed:" (ex-message e))
       false)))
 
-;; ponytail: the original images, never resized and never deleted. Some sources give 1 MB posters.
-;; Resize on download if page weight matters, delete files of old films if the disk fills.
+;; ponytail: poster files are never deleted. Delete files of old films if the disk fills.
 (defn add-posters
   "Downloads the missing posters one after the other. Adds :movie/poster for each film with a file."
   [tx]
