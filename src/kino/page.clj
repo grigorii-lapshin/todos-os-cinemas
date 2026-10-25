@@ -71,6 +71,24 @@ img.poster { padding: 0; object-fit: cover; }
 .cities section { break-inside: avoid; margin-bottom: 12px; }
 .cities h3 { font-size: 15px; font-weight: 600; color: var(--muted); }
 .cities a { display: block; line-height: 22px; }
+
+.mt .poster { display: none; }
+
+/* Phone: a narrow cinema column, the film text as wide as the screen, the times as a list. */
+@media (max-width: 700px) {
+  .grid { grid-template-columns: 90px repeat(7, 104px); }
+  .grid::before { content: ''; grid-row: 2; grid-column: 1; position: sticky; left: 0; top: 36px; z-index: 30;
+    background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .filters { grid-column: 1 / -1; width: calc(100vw - 32px); height: 36px; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; }
+  .day { top: 36px; }
+  .day.today { grid-column: 2; }
+  .mp, .e, .c .street { display: none; }
+  .mt { grid-column: 1 / -1; width: calc(100vw - 32px); border-right: 1px solid var(--border); }
+  .mt .poster { display: block; float: left; position: static; width: 40px; height: 58px; padding: 0; margin-right: 8px; font-size: 0; }
+  .md { clear: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  .c { grid-column: 1; font-size: 14px; line-height: 17px; }
+  .s > a { position: static; display: inline-block; padding: 6px 4px; line-height: 14px; }
+}
 ")
 
 (def zone (ZoneId/of "Europe/Lisbon"))
@@ -160,7 +178,8 @@ img.poster { padding: 0; object-fit: cover; }
     (list*
       [:div.mp {:style (str "grid-row:span " (inc (count rows)))} (poster movie)]
       [:div.mt
-       [:h2 [:a {:href (href (assoc params :filme (:movie/title movie)))} (:movie/title movie)]]
+       (poster movie)
+       [:h2[:a {:href (href (assoc params :filme (:movie/title movie)))} (:movie/title movie)]]
        [:div.mi
         (interpose " • "
           (concat (sort (:movie/genres movie))
@@ -174,12 +193,12 @@ img.poster { padding: 0; object-fit: cover; }
             :let [by-day (group-by #(.toLocalDate ^LocalDateTime (:show/time %)) shows)]
             el (cons [:div.c
                       [:a {:href (href (assoc params :cinema (:cinema/name cinema)))} (:cinema/name cinema)] (badges version)
-                      [:div.addr
-                       (interpose " • "
-                         (keep identity
-                           [(:cinema/address cinema)
-                            (some->> (:cinema/city cinema) (vector :a {:href (href (assoc params :cidade (:cinema/city cinema)))}))
-                            (:cinema/district cinema)]))]]
+                      (let [more (keep identity
+                                   [(some->> (:cinema/city cinema) (vector :a {:href (href (assoc params :cidade (:cinema/city cinema)))}))
+                                    (:cinema/district cinema)])]
+                        [:div.addr
+                         (when-let [a (:cinema/address cinema)] [:span.street a (when (seq more) " • ")])
+                         (interpose " • " more)])]
                      (for [day days]
                        (cell (by-day day) now)))]
         el))))
@@ -206,8 +225,7 @@ img.poster { padding: 0; object-fit: cover; }
         [:html {:lang "pt"}
          [:head
           [:meta {:charset "utf-8"}]
-          ;; ponytail: only the index fits a phone, the grid has no phone layout yet
-          (when (empty? params) [:meta {:name "viewport" :content "width=device-width"}])
+          [:meta {:name "viewport" :content "width=device-width"}]
           [:title (str/join " — " (concat (keep params (keys filters)) ["Todos os Cinemas"]))]
           [:style (h/raw css)]]
          [:body
